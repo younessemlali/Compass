@@ -38,6 +38,28 @@ def transform_xml(xml_content):
 
 st.title("Processeur XML - MODELE vers CYCLE")
 
+# Description de l'application
+st.markdown("""
+## Description de l'application
+
+Cette application transforme vos fichiers XML en effectuant automatiquement :
+
+**1. Transformation principale :**
+- Change tous les attributs `name="MODELE"` en `name="CYCLE"`
+- Exemple : `<IdValue name="MODELE">BH</IdValue>` devient `<IdValue name="CYCLE">BH</IdValue>`
+
+**2. Détection d'alertes :**
+- Identifie automatiquement les valeurs "BH" (valeurs par défaut de l'ERP)
+- Affiche une alerte pour chaque valeur "BH" détectée
+
+**3. Instructions d'utilisation :**
+- Chargez votre fichier XML avec le bouton ci-dessous
+- Ou collez directement votre contenu XML dans la zone de texte
+- Téléchargez le fichier corrigé une fois le traitement terminé
+
+---
+""")
+
 # Upload de fichier
 uploaded_file = st.file_uploader("Chargez votre fichier XML", type=['xml'])
 
