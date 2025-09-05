@@ -15,19 +15,26 @@ def read_file(uploaded_file):
 def transform_xml(xml_content):
     """Transforme MODELE en CYCLE et détecte BH"""
     try:
+        # Parser le XML
         root = ET.fromstring(xml_content)
         alerts = []
         
+        # Chercher TOUTES les balises IdValue
         for elem in root.iter('IdValue'):
-            if elem.get('name') == 'MODELE':
-                if elem.text == 'BH':
+            name_attr = elem.get('name')
+            if name_attr == 'MODELE':
+                # Alerte si valeur BH
+                if elem.text and elem.text.strip() == 'BH':
                     alerts.append("ALERTE: Valeur BH détectée")
+                
+                # Changer l'attribut name de MODELE vers CYCLE
                 elem.set('name', 'CYCLE')
         
-        transformed = ET.tostring(root, encoding='unicode')
+        # Retourner le XML transformé
+        transformed = ET.tostring(root, encoding='unicode', method='xml')
         return transformed, alerts
     except Exception as e:
-        return None, [f"Erreur: {e}"]
+        return None, [f"Erreur XML: {str(e)}"]
 
 st.title("Processeur XML - MODELE vers CYCLE")
 
