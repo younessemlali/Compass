@@ -3,6 +3,49 @@ import xml.etree.ElementTree as ET
 from io import StringIO
 import re
 
+def safe_file_read(uploaded_file):
+    """
+    Lit un fichier en gérant différents encodages de manière sécurisée
+    """
+    encodings_to_try = ['utf-8', 'iso-8859-1', 'windows-1252', 'utf-16']
+    
+    for encoding in encodings_to_try:
+        try:
+            uploaded_file.seek(0)  # Reset du pointeur
+            content = uploaded_file.read().decode(encoding)
+            return content, encoding, None
+        except UnicodeDecodeError:
+            continue
+        except Exception as e:
+            continue
+    
+    # Si tous les encodages échouent, essayer la détection automatique
+    try:
+        uploaded_file.seek(0)
+        raw_data = uploaded_file.read()
+        
+        # Essayer avec chardet si disponible
+        try:
+            import chardet
+            detected = chardet.detect(raw_data)
+            if detected['encoding']:
+                content = raw_data.decode(detected['encoding'])
+                return content, detected['encoding'], None
+        except ImportError:
+            pass
+        
+        # Dernier recours : ignore les erreurs
+        try:
+            content = raw_data.decode('utf-8', errors='ignore')
+            return content, 'utf-8 (avec erreurs ignorées)', "⚠️ Certains caractères ont pu être perdus"
+        except:
+            pass
+            
+    except Exception as e:
+        return None, None, f"Erreur lors de la lecture du fichier: {str(e)}"
+    
+    return None, None, "Impossible de lire le fichier avec aucun encodage connu"
+
 def process_xml_content(xml_content):
     """
     Traite le contenu XML pour remplacer MODELE par CYCLE et détecter les valeurs BH
@@ -110,8 +153,16 @@ def main():
         
         # Récupérer le contenu XML
         if uploaded_file is not None:
-            xml_content = uploaded_file.read().decode('utf-8')
-            st.success("✅ Fichier chargé avec succès")
+            content, encoding, error = safe_file_read(uploaded_file)
+            
+            if content is not None:
+                xml_content = content
+                if error:
+                    st.warning(error)
+                st.success(f"✅ Fichier chargé avec succès (encodage: {encoding})")
+            else:
+                st.error(f"❌ {error}")
+                
         elif manual_xml.strip():
             xml_content = manual_xml
             st.success("✅ XML saisi manuellement")
