@@ -1,5 +1,6 @@
 import streamlit as st
 import xml.etree.ElementTree as ET
+import re
 
 def read_file(uploaded_file):
     """Lit le fichier avec gestion des encodages"""
@@ -21,7 +22,6 @@ def transform_xml(xml_content):
         result = xml_content
         
         # Chercher et remplacer name="MODELE" par name="CYCLE"
-        import re
         pattern = r'name="MODELE"'
         if re.search(pattern, result):
             result = re.sub(pattern, 'name="CYCLE"', result)
@@ -60,16 +60,19 @@ Cette application transforme vos fichiers XML en effectuant automatiquement :
 ---
 """)
 
+# Variables globales initialisées dès le début
+xml_content = None
+transformed_xml = None
+original_filename = "fichier_corrige.xml"
+
 # Upload de fichier
 uploaded_file = st.file_uploader("Chargez votre fichier XML", type=['xml'])
 
-xml_content = None
-transformed_xml = None
-
 if uploaded_file:
+    original_filename = uploaded_file.name
     xml_content = read_file(uploaded_file)
     if xml_content:
-        st.success("Fichier chargé")
+        st.success(f"Fichier '{original_filename}' chargé")
         transformed_xml, alerts = transform_xml(xml_content)
         
         for alert in alerts:
@@ -99,8 +102,7 @@ if transformed_xml:
         label="TÉLÉCHARGER LE FICHIER XML CORRIGÉ",
         data=transformed_xml,
         file_name=original_filename,
-        mime="application/xml",
-        key="download_btn"
+        mime="application/xml"
     )
 else:
     st.info("Chargez un fichier XML pour activer le téléchargement")
