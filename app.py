@@ -180,15 +180,25 @@ def main():
                 st.subheader("XML transformé")
                 st.code(result_xml, language='xml')
         
-        # Bouton de téléchargement - TOUJOURS PRÉSENT
-        download_data = result_xml if result_xml else "<!-- Aucun XML traité -->"
+        # BOUTON DE TÉLÉCHARGEMENT - TOUJOURS VISIBLE
+        st.markdown("---")
+        st.subheader("Téléchargement")
+        
+        download_data = result_xml if result_xml else "<!-- Aucun XML traité pour le moment -->"
+        button_enabled = result_xml is not None
+        
+        if button_enabled:
+            st.success("Fichier prêt à télécharger")
+        else:
+            st.info("Uploadez ou saisissez du XML pour activer le téléchargement")
+        
         st.download_button(
-            label="📥 Télécharger le XML modifié",
+            label="TÉLÉCHARGER LE FICHIER XML CORRIGÉ",
             data=download_data,
-            file_name="xml_transforme.xml",
+            file_name="xml_corrige.xml",
             mime="application/xml",
-            disabled=(result_xml is None),
-            help="Traitez d'abord un fichier XML pour activer le téléchargement"
+            disabled=not button_enabled,
+            use_container_width=True
         )
     
     # Section de test des valeurs
