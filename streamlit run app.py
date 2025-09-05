@@ -1,20 +1,4 @@
-# Option 2: Saisie manuelle
-        st.subheader("Ou saisie manuelle du XML")
-        manual_xml = st.text_area(
-            "Collez votre contenu XML ici",
-            height=200,
-            placeholder="""<StaffingShift shiftPeriod="weekly">
-<Id idOwner="EXT0">
-<IdValue name="MODELE">BH</IdValue>
-</Id>
-<Name>Base horaire hebdomadaire</Name>
-<Hours>36.30</Hours>
-<StartTime>08:30:00</StartTime>
-</StaffingShift>"""
-        )
-        
-        # Champ pour remplacer les valeurs BH
-        st.subheader("💡 Remplacement automatique des valeurs BH")import streamlit as st
+import streamlit as st
 import xml.etree.ElementTree as ET
 from io import StringIO
 import re
@@ -62,7 +46,7 @@ def safe_file_read(uploaded_file):
     
     return None, None, "Impossible de lire le fichier avec aucun encodage connu"
 
-def process_xml_content(xml_content):
+def process_xml_content(xml_content, new_cycle_value=None):
     """
     Traite le contenu XML pour remplacer MODELE par CYCLE et détecter les valeurs BH
     """
@@ -80,6 +64,11 @@ def process_xml_content(xml_content):
                 # Vérifier si la valeur est "BH" (valeur par défaut)
                 if current_value == 'BH':
                     alerts.append(f"⚠️ Valeur par défaut 'BH' détectée dans IdValue name='MODELE'")
+                    
+                    # Si une nouvelle valeur est fournie, remplacer BH
+                    if new_cycle_value and new_cycle_value.strip():
+                        idvalue.text = new_cycle_value.strip()
+                        alerts.append(f"✅ Valeur 'BH' remplacée par '{new_cycle_value.strip()}'")
                 
                 # Changer l'attribut name de "MODELE" à "CYCLE"
                 idvalue.set('name', 'CYCLE')
@@ -161,6 +150,22 @@ def main():
 <StartTime>08:30:00</StartTime>
 </StaffingShift>"""
         )
+        
+        # Champ pour remplacer les valeurs BH
+        st.subheader("💡 Remplacement automatique des valeurs BH")
+        replacement_value = st.text_input(
+            "Nouvelle valeur pour remplacer 'BH'",
+            placeholder="Ex: CYC001, HEBDO1, etc.",
+            help="Si vous laissez vide, les valeurs 'BH' ne seront pas modifiées (seulement l'alerte sera affichée)"
+        )
+        
+        if replacement_value:
+            is_valid, message = validate_cycle_value(replacement_value)
+            if is_valid:
+                st.success(f"✅ {message}")
+            else:
+                st.error(f"❌ {message}")
+                replacement_value = None  # Annuler la valeur si invalide
     
     with col2:
         st.header("📥 Résultat du traitement")
