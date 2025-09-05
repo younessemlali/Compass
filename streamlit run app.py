@@ -1,4 +1,20 @@
-import streamlit as st
+# Option 2: Saisie manuelle
+        st.subheader("Ou saisie manuelle du XML")
+        manual_xml = st.text_area(
+            "Collez votre contenu XML ici",
+            height=200,
+            placeholder="""<StaffingShift shiftPeriod="weekly">
+<Id idOwner="EXT0">
+<IdValue name="MODELE">BH</IdValue>
+</Id>
+<Name>Base horaire hebdomadaire</Name>
+<Hours>36.30</Hours>
+<StartTime>08:30:00</StartTime>
+</StaffingShift>"""
+        )
+        
+        # Champ pour remplacer les valeurs BH
+        st.subheader("💡 Remplacement automatique des valeurs BH")import streamlit as st
 import xml.etree.ElementTree as ET
 from io import StringIO
 import re
@@ -169,17 +185,28 @@ def main():
         
         # Traiter le XML si disponible
         if xml_content:
-            modified_xml, alerts = process_xml_content(xml_content)
+            modified_xml, alerts = process_xml_content(xml_content, replacement_value)
             
             if modified_xml:
                 # Afficher les alertes
                 if alerts:
-                    st.error("🚨 **ALERTES DÉTECTÉES**")
-                    for alert in alerts:
-                        st.warning(alert)
+                    # Séparer les alertes et les confirmations
+                    warning_alerts = [alert for alert in alerts if alert.startswith("⚠️")]
+                    success_alerts = [alert for alert in alerts if alert.startswith("✅")]
                     
-                    st.markdown("---")
-                    st.info("💡 **Action requise :** Remplacez les valeurs 'BH' par des valeurs alphanumériques appropriées")
+                    if warning_alerts:
+                        st.error("🚨 **ALERTES DÉTECTÉES**")
+                        for alert in warning_alerts:
+                            st.warning(alert)
+                        
+                        if not replacement_value:
+                            st.markdown("---")
+                            st.info("💡 **Action suggérée :** Saisissez une nouvelle valeur dans le champ de gauche pour remplacer automatiquement les valeurs 'BH'")
+                    
+                    if success_alerts:
+                        st.success("✅ **TRANSFORMATIONS EFFECTUÉES**")
+                        for alert in success_alerts:
+                            st.info(alert)
                 else:
                     st.success("✅ Aucune valeur par défaut 'BH' détectée")
                 
