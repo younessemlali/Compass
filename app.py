@@ -154,6 +154,7 @@ def main():
             st.success("✅ XML saisi manuellement")
         
         # Effectuer la transformation si du contenu XML est disponible
+        result_xml = None
         if xml_content:
             result_xml, alerts, transformations, error = process_xml_transformation(
                 xml_content, 
@@ -178,14 +179,17 @@ def main():
                 # Afficher le XML transformé
                 st.subheader("XML transformé")
                 st.code(result_xml, language='xml')
-                
-                # Bouton de téléchargement
-                st.download_button(
-                    label="📥 Télécharger le XML modifié",
-                    data=result_xml,
-                    file_name="xml_transforme.xml",
-                    mime="application/xml"
-                )
+        
+        # Bouton de téléchargement - TOUJOURS PRÉSENT
+        download_data = result_xml if result_xml else "<!-- Aucun XML traité -->"
+        st.download_button(
+            label="📥 Télécharger le XML modifié",
+            data=download_data,
+            file_name="xml_transforme.xml",
+            mime="application/xml",
+            disabled=(result_xml is None),
+            help="Traitez d'abord un fichier XML pour activer le téléchargement"
+        )
     
     # Section de test des valeurs
     st.markdown("---")
