@@ -13,28 +13,28 @@ def read_file(uploaded_file):
     return None
 
 def transform_xml(xml_content):
-    """Transforme MODELE en CYCLE et détecte BH"""
+    """Transforme MODELE en CYCLE et détecte BH - SANS NAMESPACES"""
     try:
-        # Parser le XML
-        root = ET.fromstring(xml_content)
         alerts = []
         
-        # Chercher TOUTES les balises IdValue
-        for elem in root.iter('IdValue'):
-            name_attr = elem.get('name')
-            if name_attr == 'MODELE':
-                # Alerte si valeur BH
-                if elem.text and elem.text.strip() == 'BH':
-                    alerts.append("ALERTE: Valeur BH détectée")
-                
-                # Changer l'attribut name de MODELE vers CYCLE
-                elem.set('name', 'CYCLE')
+        # Transformation par remplacement de texte simple
+        result = xml_content
         
-        # Retourner le XML transformé
-        transformed = ET.tostring(root, encoding='unicode', method='xml')
-        return transformed, alerts
+        # Chercher et remplacer name="MODELE" par name="CYCLE"
+        import re
+        pattern = r'name="MODELE"'
+        if re.search(pattern, result):
+            result = re.sub(pattern, 'name="CYCLE"', result)
+            alerts.append("Transformation: MODELE changé en CYCLE")
+        
+        # Détecter les valeurs BH
+        bh_pattern = r'<[^>]*IdValue[^>]*>BH</[^>]*IdValue>'
+        if re.search(bh_pattern, result):
+            alerts.append("ALERTE: Valeur BH détectée")
+        
+        return result, alerts
     except Exception as e:
-        return None, [f"Erreur XML: {str(e)}"]
+        return None, [f"Erreur: {str(e)}"]
 
 st.title("Processeur XML - MODELE vers CYCLE")
 
