@@ -98,7 +98,7 @@ if transformed_xml:
     st.download_button(
         label="TÉLÉCHARGER LE FICHIER XML CORRIGÉ",
         data=transformed_xml,
-        file_name="fichier_corrige.xml",
+        file_name=original_filename,
         mime="application/xml",
         key="download_btn"
     )
