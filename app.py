@@ -1,113 +1,87 @@
-import streamlit as st
-import xml.etree.ElementTree as ET
 import re
+import sys
+import os
 
-def read_file(uploaded_file):
-    """Lit le fichier avec gestion des encodages"""
-    encodings = ['utf-8', 'iso-8859-1', 'windows-1252']
-    for encoding in encodings:
-        try:
-            uploaded_file.seek(0)
-            return uploaded_file.read().decode(encoding)
-        except:
-            continue
-    return None
 
-def transform_xml(xml_content):
-    """Transforme MODELE en CYCLE et détecte BH - SANS NAMESPACES"""
-    try:
-        alerts = []
-        
-        # Transformation par remplacement de texte simple
-        result = xml_content
-        
-        # Chercher et remplacer name="MODELE" par name="CYCLE"
-        pattern = r'name="MODELE"'
-        if re.search(pattern, result):
-            result = re.sub(pattern, 'name="CYCLE"', result)
-            alerts.append("Transformation: MODELE changé en CYCLE")
-        
-        # Détecter les valeurs BH
-        bh_pattern = r'<[^>]*IdValue[^>]*>BH</[^>]*IdValue>'
-        if re.search(bh_pattern, result):
-            alerts.append("ALERTE: Valeur BH détectée")
-        
-        return result, alerts
-    except Exception as e:
-        return None, [f"Erreur: {str(e)}"]
+def corriger_xml_compass(contenu_bytes):
+    """
+    Corrections pour les contrats Compass Group :
+    1. Supprimer les blocs StaffingShift parasites (shiftPeriod != "weekly")
+    2. Supprimer les balises superflues dans le bloc weekly : <Name>, <n>, <Hours>, <StartTime>, <Comment>
+    3. Signaler les contrats avec IdValue non numérique à 6 chiffres (correction manuelle requise)
+    """
 
-st.title("Processeur XML - MODELE vers CYCLE")
+    contenu = contenu_bytes.decode("iso-8859-1")
+    warnings = []
 
-# Description de l'application
-st.markdown("""
-## Description de l'application
-
-Cette application transforme vos fichiers XML en effectuant automatiquement :
-
-**1. Transformation principale :**
-- Change tous les attributs `name="MODELE"` en `name="CYCLE"`
-- Exemple : `<IdValue name="MODELE">BH</IdValue>` devient `<IdValue name="CYCLE">BH</IdValue>`
-
-**2. Détection d'alertes :**
-- Identifie automatiquement les valeurs "BH" (valeurs par défaut de l'ERP)
-- Affiche une alerte pour chaque valeur "BH" détectée
-
-**3. Instructions d'utilisation :**
-- Chargez votre fichier XML avec le bouton ci-dessous
-- Ou collez directement votre contenu XML dans la zone de texte
-- Téléchargez le fichier corrigé une fois le traitement terminé
-
----
-""")
-
-# Variables globales initialisées dès le début
-xml_content = None
-transformed_xml = None
-original_filename = "fichier_corrige.xml"
-
-# Upload de fichier
-uploaded_file = st.file_uploader("Chargez votre fichier XML", type=['xml'])
-
-if uploaded_file:
-    original_filename = uploaded_file.name
-    xml_content = read_file(uploaded_file)
-    if xml_content:
-        st.success(f"Fichier '{original_filename}' chargé")
-        transformed_xml, alerts = transform_xml(xml_content)
-        
-        for alert in alerts:
-            st.warning(alert)
-        
-        if transformed_xml:
-            st.success("Transformation réussie")
-
-# Zone de texte comme alternative
-if not xml_content:
-    xml_manual = st.text_area("Ou collez votre XML ici:", height=200)
-    if xml_manual.strip():
-        xml_content = xml_manual
-        transformed_xml, alerts = transform_xml(xml_content)
-        
-        for alert in alerts:
-            st.warning(alert)
-        
-        if transformed_xml:
-            st.success("Transformation réussie")
-
-# BOUTON DE TÉLÉCHARGEMENT - Toujours présent
-st.markdown("---")
-
-if transformed_xml:
-    st.download_button(
-        label="TÉLÉCHARGER LE FICHIER XML CORRIGÉ",
-        data=transformed_xml,
-        file_name=original_filename,
-        mime="application/xml"
+    # Étape 1 : supprimer les blocs StaffingShift parasites (tout sauf shiftPeriod="weekly")
+    pattern_bloc_parasite = re.compile(
+        r'[ \t]*<StaffingShift\s+shiftPeriod="(?!weekly)[^"]*">.*?</StaffingShift>\r?\n?',
+        re.DOTALL
     )
-else:
-    st.info("Chargez un fichier XML pour activer le téléchargement")
+    contenu = pattern_bloc_parasite.sub("", contenu)
 
-# Aperçu du résultat
-if transformed_xml:
-    with st.expander("Aperçu du XML corrigé"):
-        st.code(transformed_xml, language='xml')
+    # Étape 2 : supprimer balises superflues dans les blocs weekly restants
+    for balise in ["Name", "n", "Hours", "StartTime", "Comment"]:
+        pattern = re.compile(
+            r'[ \t]*<' + balise + r'(\s[^>]*)?>.*?</' + balise + r'>\r?\n?',
+            re.DOTALL
+        )
+        contenu = pattern.sub("", contenu)
+
+    # Étape 3 : détecter les IdValue invalides (pas un code numérique à 6 chiffres)
+    pattern_contrats = re.compile(
+        r'<ContractId[^>]*>\s*<IdValue>([^<]+)</IdValue>\s*</ContractId>'
+    )
+    contrat_ids = pattern_contrats.findall(contenu)
+
+    pattern_idvalue = re.compile(
+        r'<StaffingShift shiftPeriod="weekly">.*?<IdValue[^>]*>([^<]+)</IdValue>',
+        re.DOTALL
+    )
+    idvalues = pattern_idvalue.findall(contenu)
+
+    for i, val in enumerate(idvalues):
+        val = val.strip()
+        if not re.match(r'^\d{6}$', val):
+            contrat_ref = contrat_ids[i] if i < len(contrat_ids) else f"contrat #{i+1}"
+            warnings.append(
+                f"⚠️  Contrat {contrat_ref} : IdValue = '{val}' — code horaire invalide "
+                f"(doit être numérique à 6 chiffres). Correction manuelle requise."
+            )
+
+    return contenu.encode("iso-8859-1"), warnings
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python compass_corrector.py <fichier_xml> [dossier_sortie]")
+        sys.exit(1)
+
+    fichier = sys.argv[1]
+    dossier_sortie = sys.argv[2] if len(sys.argv) > 2 else os.path.dirname(os.path.abspath(fichier))
+
+    with open(fichier, "rb") as f:
+        contenu = f.read()
+
+    contenu_corrige, warnings = corriger_xml_compass(contenu)
+
+    nom_fichier = os.path.basename(fichier)
+    base, ext = os.path.splitext(nom_fichier)
+    sortie = os.path.join(dossier_sortie, base + "_CORRIGE" + ext)
+
+    with open(sortie, "wb") as f:
+        f.write(contenu_corrige)
+
+    print(f"✅ Fichier corrigé : {sortie}")
+
+    if warnings:
+        print("\n--- AVERTISSEMENTS (corrections manuelles requises) ---")
+        for w in warnings:
+            print(w)
+    else:
+        print("✅ Tous les codes horaires sont valides.")
+
+
+if __name__ == "__main__":
+    main()
